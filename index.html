@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TechParts · Assistente IA</title>
+  <style>
+    /* ──────────────────────────────────────────
+       Reset & Base
+    ────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0F172A;
+      --surface:   #1E293B;
+      --surface2:  #273549;
+      --border:    #334155;
+      --accent:    #10B981;
+      --accent-dk: #059669;
+      --text:      #E2E8F0;
+      --text-muted:#94A3B8;
+      --bubble-user: #10B981;
+      --bubble-agent:#273549;
+      --radius:    14px;
+      --shadow:    0 4px 24px rgba(0,0,0,.45);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    /* ──────────────────────────────────────────
+       Layout
+    ────────────────────────────────────────── */
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 2px 12px rgba(0,0,0,.35);
+      flex-shrink: 0;
+    }
+
+    .header-logo {
+      width: 38px;
+      height: 38px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .header-info h1 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: .3px;
+    }
+
+    .header-info p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-left: auto;
+      box-shadow: 0 0 6px var(--accent);
+      flex-shrink: 0;
+      transition: background .3s;
+    }
+
+    .status-dot.thinking {
+      background: #F59E0B;
+      box-shadow: 0 0 6px #F59E0B;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .3; }
+    }
+
+    /* ── Chat area ── */
+    .chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      scroll-behavior: smooth;
+    }
+
+    /* Custom scrollbar */
+    .chat-area::-webkit-scrollbar { width: 5px; }
+    .chat-area::-webkit-scrollbar-track { background: transparent; }
+    .chat-area::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 99px;
+    }
+
+    /* ── Messages ── */
+    .msg-row {
+      display: flex;
+      gap: 10px;
+      max-width: 78%;
+      animation: fadeUp .25s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg-row.user  { align-self: flex-end;  flex-direction: row-reverse; }
+    .msg-row.agent { align-self: flex-start; }
+
+    .avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+      align-self: flex-end;
+    }
+
+    .avatar.agent-av { background: var(--surface2); border: 1px solid var(--border); }
+    .avatar.user-av  { background: var(--accent-dk); }
+
+    .bubble {
+      padding: 11px 15px;
+      border-radius: var(--radius);
+      font-size: 14.5px;
+      line-height: 1.6;
+      word-break: break-word;
+      box-shadow: var(--shadow);
+    }
+
+    .msg-row.user  .bubble {
+      background: var(--bubble-user);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg-row.agent .bubble {
+      background: var(--bubble-agent);
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    .bubble p + p { margin-top: .5em; }
+
+    /* Attached images in bubble */
+    .bubble .attached-images {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .bubble .attached-images img {
+      max-width: 200px;
+      max-height: 150px;
+      border-radius: 8px;
+      object-fit: cover;
+      cursor: pointer;
+      transition: transform .2s;
+    }
+
+    .bubble .attached-images img:hover {
+      transform: scale(1.05);
+    }
+
+    .bubble .attached-docs {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    .bubble .attached-docs .doc-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0,0,0,.2);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Timestamp */
+    .ts {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      padding: 0 4px;
+    }
+
+    .msg-col { display: flex; flex-direction: column; }
+    .msg-row.user  .msg-col { align-items: flex-end; }
+    .msg-row.agent .msg-col { align-items: flex-start; }
+
+    /* ── Loading dots ── */
+    .loading-bubble {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 14px 18px;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      animation: bounce 1.2s ease-in-out infinite;
+    }
+    .dot:nth-child(2) { animation-delay: .18s; }
+    .dot:nth-child(3) { animation-delay: .36s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: .5; }
+      40%            { transform: translateY(-6px); opacity: 1; }
+    }
+
+    /* ── Welcome card ── */
+    .welcome {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex: 1;
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+    }
+
+    .welcome .icon { font-size: 48px; }
+    .welcome h2 { font-size: 20px; color: var(--text); }
+    .welcome p  { font-size: 14px; max-width: 340px; }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+
+    .chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      padding: 6px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background .2s, border-color .2s;
+      color: var(--text);
+    }
+
+    .chip:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    /* ── Input bar ── */
+    .input-bar {
+      padding: 14px 20px 18px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    /* File preview strip */
+    .file-preview-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+      min-height: 0;
+    }
+
+    .file-preview-strip:empty { display: none; }
+
+    .file-preview-item {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+      animation: fadeUp .2s ease both;
+    }
+
+    .file-preview-item img {
+      width: 36px;
+      height: 36px;
+      border-radius: 4px;
+      object-fit: cover;
+    }
+
+    .file-preview-item .doc-icon {
+      font-size: 20px;
+    }
+
+    .file-preview-item .file-name {
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-preview-item .remove-btn {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #EF4444;
+      color: #fff;
+      border: none;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+
+    .input-wrap {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px 12px;
+      transition: border-color .2s;
+    }
+
+    .input-wrap:focus-within { border-color: var(--accent); }
+
+    #userInput {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: 14.5px;
+      resize: none;
+      max-height: 120px;
+      overflow-y: auto;
+      line-height: 1.5;
+      padding: 3px 0;
+      font-family: inherit;
+    }
+
+    #userInput::placeholder { color: var(--text-muted); }
+
+    #attachBtn {
+      width: 38px;
+      height: 38px;
+      border-radius: 9px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: color .2s, background .2s;
+    }
+
+    #attachBtn:hover {
+      color: var(--accent);
+      background: rgba(16, 185, 129, 0.1);
+    }
+
+    #sendBtn {
+      width: 38px;
+      height: 38px;
+      border-radius: 9px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background .2s, transform .1s;
+    }
+
+    #sendBtn:hover  { background: var(--accent-dk); }
+    #sendBtn:active { transform: scale(.93); }
+    #sendBtn:disabled { background: var(--border); cursor: not-allowed; }
+
+    /* Hidden file input */
+    #fileInput { display: none; }
+
+    /* Error banner */
+    .error-banner {
+      background: #7f1d1d;
+      border: 1px solid #ef4444;
+      color: #fca5a5;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      align-self: center;
+      max-width: 90%;
+      animation: fadeUp .25s ease both;
+    }
+
+    /* Image lightbox */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      cursor: pointer;
+      animation: fadeUp .2s ease both;
+    }
+
+    .lightbox img {
+      max-width: 90vw;
+      max-height: 90vh;
+      border-radius: 8px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.6);
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .msg-row { max-width: 92%; }
+      .chat-area { padding: 16px 12px; }
+      .input-bar { padding: 10px 12px 14px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-logo">⚙️</div>
+    <div class="header-info">
+      <h1>TechParts Assistant</h1>
+      <p>Powered by Amazon Bedrock · Claude Sonnet</p>
+    </div>
+    <div class="status-dot" id="statusDot" title="Online"></div>
+  </header>
+
+  <!-- Chat area -->
+  <main class="chat-area" id="chatArea">
+    <!-- Welcome screen (hidden once chat starts) -->
+    <div class="welcome" id="welcome">
+      <span class="icon">🤖</span>
+      <h2>Como posso ajudar?</h2>
+      <p>Pergunte sobre peças, estoque, compatibilidade de componentes ou envie fotos para análise de RMA.</p>
+      <div class="chips">
+        <span class="chip" onclick="sendSuggestion(this)">Peças disponíveis</span>
+        <span class="chip" onclick="sendSuggestion(this)">Verificar compatibilidade</span>
+        <span class="chip" onclick="sendSuggestion(this)">Status do pedido</span>
+        <span class="chip" onclick="sendSuggestion(this)">Iniciar RMA</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- Input bar -->
+  <footer class="input-bar">
+    <div class="file-preview-strip" id="filePreviewStrip"></div>
+    <div class="input-wrap">
+      <button id="attachBtn" aria-label="Anexar arquivo" title="Anexar imagem ou documento">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+        </svg>
+      </button>
+      <textarea
+        id="userInput"
+        rows="1"
+        placeholder="Digite sua mensagem ou anexe um arquivo…"
+        aria-label="Mensagem"
+      ></textarea>
+      <button id="sendBtn" aria-label="Enviar" title="Enviar (Enter)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+    <input type="file" id="fileInput" multiple
+           accept="image/png,image/jpeg,image/gif,image/webp,.pdf,.txt,.csv,.doc,.docx" />
+  </footer>
+
+</div>
+
+<script>
+  /* ── Config ── */
+  const API_URL = 'http://localhost:5000/chat';
+  const MAX_FILE_SIZE_MB = 10;
+  const ALLOWED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+  const ALLOWED_DOC_TYPES = new Set([
+    'application/pdf', 'text/plain', 'text/csv',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ]);
+
+  /* ── State ── */
+  let sessionId = crypto.randomUUID();
+  let isLoading = false;
+  let pendingFiles = []; // { name, type, data (base64), previewUrl }
+
+  /* ── DOM refs ── */
+  const chatArea       = document.getElementById('chatArea');
+  const input          = document.getElementById('userInput');
+  const sendBtn        = document.getElementById('sendBtn');
+  const attachBtn      = document.getElementById('attachBtn');
+  const fileInput      = document.getElementById('fileInput');
+  const statusDot      = document.getElementById('statusDot');
+  const welcome        = document.getElementById('welcome');
+  const filePreviewStrip = document.getElementById('filePreviewStrip');
+
+  /* ── Auto-resize textarea ── */
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  });
+
+  /* ── Enter to send (Shift+Enter = newline) ── */
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  sendBtn.addEventListener('click', sendMessage);
+
+  /* ── Attach button ── */
+  attachBtn.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => addFile(file));
+    fileInput.value = ''; // reset
+  });
+
+  /* ── Drag & drop on chat area ── */
+  chatArea.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+
+  chatArea.addEventListener('drop', e => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files);
+    files.forEach(file => addFile(file));
+  });
+
+  /* ── Paste from clipboard ── */
+  document.addEventListener('paste', e => {
+    const items = Array.from(e.clipboardData.items);
+    items.forEach(item => {
+      if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (file) addFile(file);
+      }
+    });
+  });
+
+  /* ── File handling ── */
+  function addFile(file) {
+    if (!ALLOWED_IMAGE_TYPES.has(file.type) && !ALLOWED_DOC_TYPES.has(file.type)) {
+      appendError(`Tipo não suportado: ${file.type || file.name.split('.').pop()}`);
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      appendError(`Arquivo "${file.name}" excede ${MAX_FILE_SIZE_MB}MB.`);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1];
+      const previewUrl = ALLOWED_IMAGE_TYPES.has(file.type) ? reader.result : null;
+
+      pendingFiles.push({
+        name: file.name,
+        type: file.type,
+        data: base64,
+        previewUrl,
+      });
+
+      renderFilePreview();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeFile(index) {
+    pendingFiles.splice(index, 1);
+    renderFilePreview();
+  }
+
+  function renderFilePreview() {
+    filePreviewStrip.innerHTML = '';
+    pendingFiles.forEach((f, i) => {
+      const item = document.createElement('div');
+      item.className = 'file-preview-item';
+
+      if (f.previewUrl) {
+        item.innerHTML = `
+          <img src="${f.previewUrl}" alt="${f.name}" />
+          <span class="file-name">${f.name}</span>
+          <button class="remove-btn" onclick="removeFile(${i})" title="Remover">×</button>
+        `;
+      } else {
+        const icon = getDocIcon(f.type);
+        item.innerHTML = `
+          <span class="doc-icon">${icon}</span>
+          <span class="file-name">${f.name}</span>
+          <button class="remove-btn" onclick="removeFile(${i})" title="Remover">×</button>
+        `;
+      }
+
+      filePreviewStrip.appendChild(item);
+    });
+  }
+
+  function getDocIcon(mimeType) {
+    if (mimeType === 'application/pdf') return '📄';
+    if (mimeType === 'text/csv') return '📊';
+    if (mimeType.includes('word') || mimeType.includes('document')) return '📝';
+    return '📎';
+  }
+
+  /* ── Suggestion chips ── */
+  function sendSuggestion(el) {
+    input.value = el.textContent.trim();
+    sendMessage();
+  }
+
+  /* ── Helpers ── */
+  function nowTime() {
+    return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  /* Convert simple markdown-ish formatting to HTML */
+  function formatText(text) {
+    return escapeHtml(text)
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/`(.+?)`/g, '<code style="background:#0f172a;padding:1px 5px;border-radius:4px;font-size:13px;">$1</code>')
+      .replace(/\n/g, '<br>');
+  }
+
+  function scrollToBottom() {
+    chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
+  }
+
+  /* ── Append message bubble ── */
+  function appendMessage(role, text, attachments = []) {
+    hideWelcome();
+
+    const row  = document.createElement('div');
+    row.className = `msg-row ${role}`;
+
+    const avatarEl = document.createElement('div');
+    avatarEl.className = `avatar ${role === 'user' ? 'user-av' : 'agent-av'}`;
+    avatarEl.textContent = role === 'user' ? '👤' : '🤖';
+
+    const col    = document.createElement('div');
+    col.className = 'msg-col';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+
+    // Render attached images
+    const images = attachments.filter(a => ALLOWED_IMAGE_TYPES.has(a.type));
+    const docs   = attachments.filter(a => !ALLOWED_IMAGE_TYPES.has(a.type));
+
+    if (images.length > 0) {
+      const imgContainer = document.createElement('div');
+      imgContainer.className = 'attached-images';
+      images.forEach(img => {
+        const imgEl = document.createElement('img');
+        imgEl.src = `data:${img.type};base64,${img.data}`;
+        imgEl.alt = img.name;
+        imgEl.title = img.name;
+        imgEl.onclick = () => openLightbox(imgEl.src);
+        imgContainer.appendChild(imgEl);
+      });
+      bubble.appendChild(imgContainer);
+    }
+
+    if (docs.length > 0) {
+      const docContainer = document.createElement('div');
+      docContainer.className = 'attached-docs';
+      docs.forEach(doc => {
+        const chip = document.createElement('span');
+        chip.className = 'doc-chip';
+        chip.innerHTML = `${getDocIcon(doc.type)} ${escapeHtml(doc.name)}`;
+        docContainer.appendChild(chip);
+      });
+      bubble.appendChild(docContainer);
+    }
+
+    if (text) {
+      const textEl = document.createElement('div');
+      textEl.innerHTML = formatText(text);
+      bubble.appendChild(textEl);
+    }
+
+    const ts = document.createElement('div');
+    ts.className = 'ts';
+    ts.textContent = nowTime();
+
+    col.appendChild(bubble);
+    col.appendChild(ts);
+    row.appendChild(avatarEl);
+    row.appendChild(col);
+    chatArea.appendChild(row);
+    scrollToBottom();
+    return bubble;
+  }
+
+  /* ── Image lightbox ── */
+  function openLightbox(src) {
+    const lb = document.createElement('div');
+    lb.className = 'lightbox';
+    lb.innerHTML = `<img src="${src}" />`;
+    lb.onclick = () => lb.remove();
+    document.body.appendChild(lb);
+  }
+
+  /* ── Loading indicator ── */
+  let loadingRow = null;
+
+  function showLoading() {
+    hideWelcome();
+    loadingRow = document.createElement('div');
+    loadingRow.className = 'msg-row agent';
+    loadingRow.innerHTML = `
+      <div class="avatar agent-av">🤖</div>
+      <div class="bubble loading-bubble" aria-label="Aguardando resposta…">
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+      </div>
+    `;
+    chatArea.appendChild(loadingRow);
+    scrollToBottom();
+  }
+
+  function hideLoading() {
+    if (loadingRow) {
+      loadingRow.remove();
+      loadingRow = null;
+    }
+  }
+
+  /* ── Error banner ── */
+  function appendError(msg) {
+    const el = document.createElement('div');
+    el.className = 'error-banner';
+    el.textContent = `⚠️ ${msg}`;
+    chatArea.appendChild(el);
+    scrollToBottom();
+    setTimeout(() => el.remove(), 8000);
+  }
+
+  /* ── Hide welcome screen ── */
+  function hideWelcome() {
+    if (welcome) welcome.style.display = 'none';
+  }
+
+  /* ── Set busy state ── */
+  function setBusy(busy) {
+    isLoading = busy;
+    sendBtn.disabled = busy;
+    statusDot.classList.toggle('thinking', busy);
+    statusDot.title = busy ? 'Processando…' : 'Online';
+  }
+
+  /* ── Main send function ── */
+  async function sendMessage() {
+    const text = input.value.trim();
+    if ((!text && pendingFiles.length === 0) || isLoading) return;
+
+    input.value = '';
+    input.style.height = 'auto';
+
+    // Capturar os arquivos pendentes e limpar
+    const attachments = [...pendingFiles];
+    pendingFiles = [];
+    renderFilePreview();
+
+    // Mostrar mensagem do usuário com anexos
+    const displayText = text || (attachments.length > 0 ? `📎 ${attachments.length} arquivo(s) enviado(s)` : '');
+    appendMessage('user', displayText, attachments);
+
+    setBusy(true);
+    showLoading();
+
+    try {
+      const payload = {
+        message: text,
+        session_id: sessionId,
+      };
+
+      // Adicionar arquivos ao payload
+      if (attachments.length > 0) {
+        payload.files = attachments.map(f => ({
+          name: f.name,
+          type: f.type,
+          data: f.data,
+        }));
+      }
+
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      hideLoading();
+      appendMessage('agent', data.response || '(sem resposta)');
+
+    } catch (err) {
+      hideLoading();
+      appendError(
+        err.message.includes('Failed to fetch')
+          ? 'Não foi possível conectar ao servidor. Verifique se o app.py está rodando na porta 5000.'
+          : err.message
+      );
+    } finally {
+      setBusy(false);
+      input.focus();
+    }
+  }
+</script>
+</body>
+</html>
